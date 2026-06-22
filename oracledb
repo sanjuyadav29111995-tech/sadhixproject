@@ -1,0 +1,98 @@
+---
+- name: Install Oracle 19c prerequisites
+  hosts: all
+  become: yes
+
+  vars:
+    oracle_user: oracle
+    oracle_group: oinstall
+    dba_group: dba
+
+    oracle_base: /u01/app/oracle
+    oracle_home: /u01/app/oracle/product/19.0.0/dbhome_1
+
+    oracle_zip: /tmp/LINUX.X64_193000_db_home.zip
+
+  tasks:
+
+    - name: Install prerequisite packages
+      dnf:
+        name:
+          - unzip
+          - libaio
+          - libaio-devel
+          - gcc
+          - gcc-c++
+          - make
+          - binutils
+          - elfutils-libelf
+          - elfutils-libelf-devel
+          - ksh
+          - bc
+        state: present
+
+    - name: Create groups
+      group:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - "{{ oracle_group }}"
+        - "{{ dba_group }}"
+
+    - name: Create oracle user
+      user:
+        name: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        groups: "{{ dba_group }}"
+        append: yes
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Create Oracle directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+        mode: '0755'
+      loop:
+        - "{{ oracle_base }}"
+        - "{{ oracle_home }}"
+
+    - name: Check Oracle zip file
+      stat:
+        path: "{{ oracle_zip }}"
+      register: zip_file
+
+    - name: Stop if zip file not found
+      fail:
+        msg: "Copy LINUX.X64_193000_db_home.zip into /tmp first."
+      when: not zip_file.stat.exists
+
+    - name: Extract Oracle software
+      unarchive:
+        src: "{{ oracle_zip }}"
+        dest: "{{ oracle_home }}"
+        remote_src: yes
+        owner: "{{ oracle_user }}"
+        group: "{{ oracle_group }}"
+
+    - name: Configure environment variables
+      blockinfile:
+        path: /home/oracle/.bash_profile
+        create: yes
+        block: |
+          export ORACLE_BASE={{ oracle_base }}
+          export ORACLE_HOME={{ oracle_home }}
+          export ORACLE_SID=ORCLCDB
+          export PATH=$PATH:$ORACLE_HOME/bin
+
+    - name: Check installer
+      stat:
+        path: "{{ oracle_home }}/runInstaller"
+      register: installer
+
+    - name: Display installer status
+      debug:
+        msg: "Oracle installer is ready"
+      when: installer.stat.exists

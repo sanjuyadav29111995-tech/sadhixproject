@@ -1,0 +1,17 @@
+---
+- name: MySQL version 8 installation
+  hosts: all
+  tasks:
+    - name: Install MySQL Package
+      dnf:
+        name:
+          - mysql-server
+          - mysql
+          - python3-PyMySQL
+        state: present
+ 
+    - name: Start MySQL service
+      service:
+        name: mysqld
+        state: started
+        enabled: yes

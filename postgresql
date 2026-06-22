@@ -1,0 +1,40 @@
+---
+- name: Install and Configure PostgreSQL
+  hosts: all
+  become: yes
+
+  vars:
+    pg_data: /var/lib/pgsql/data
+
+  tasks:
+
+    - name: Install PostgreSQL packages
+      dnf:
+        name:
+          - postgresql-server
+          - postgresql
+          - python3-psycopg2
+        state: present
+
+    - name: Check if PostgreSQL is initialized
+      stat:
+        path: "{{ pg_data }}/PG_VERSION"
+      register: postgres_init
+
+    - name: Initialize PostgreSQL database
+      command: postgresql-setup --initdb
+      when: not postgres_init.stat.exists
+
+    - name: Start and enable PostgreSQL service
+      service:
+        name: postgresql
+        state: started
+        enabled: true
+
+    - name: Check PostgreSQL service status
+      command: systemctl is-active postgresql
+      register: pg_status
+
+    - name: Display status
+      debug:
+        var: pg_status.stdout

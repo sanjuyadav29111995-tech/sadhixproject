@@ -96,3 +96,4 @@
       debug:
         msg: "Oracle installer is ready"
       when: installer.stat.exists
+

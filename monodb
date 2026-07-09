@@ -38,3 +38,4 @@
     - name: Display MongoDB status
       debug:
         var: mongo_status.stdout
+

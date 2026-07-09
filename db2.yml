@@ -1,0 +1,82 @@
+---
+- name: Install IBM DB2 11.5.4
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    db2_package: /u01/software/v11.5.4_linuxx64_server_dec.tar.gz
+    db2_extract_dir: /tmp/db2
+    db2_install_dir: /tmp/db2/server_dec
+
+  tasks:
+
+    - name: Install prerequisite packages
+      package:
+        name:
+          - ksh
+          - libaio
+          - libstdc++
+          - gcc
+          - gcc-c++
+          - make
+          - perl
+          - which
+          - tar
+          - unzip
+          - libgcc
+          - pam
+          - numactl-libs
+          - libxcrypt-compat
+        state: present
+      ignore_errors: yes
+
+    - name: Remove old extraction directory
+      file:
+        path: "{{ db2_extract_dir }}"
+        state: absent
+
+    - name: Create extraction directory
+      file:
+        path: "{{ db2_extract_dir }}"
+        state: directory
+
+    - name: Extract DB2 archive
+      unarchive:
+        src: "{{ db2_package }}"
+        dest: "{{ db2_extract_dir }}"
+        remote_src: yes
+
+    - name: Verify db2_install exists
+      stat:
+        path: "{{ db2_install_dir }}/db2_install"
+      register: db2install
+
+    - fail:
+        msg: "db2_install not found."
+      when: not db2install.stat.exists
+
+    - name: Run DB2 installer
+      command: ./db2_install SERVER
+      args:
+        chdir: "{{ db2_install_dir }}"
+      register: db2_result
+      ignore_errors: yes
+
+    - debug:
+        var: db2_result.stdout_lines
+
+    - debug:
+        var: db2_result.stderr_lines
+
+    - fail:
+        msg: "{{ db2_result.stderr }}"
+      when: db2_result.rc != 0
+
+    - name: Verify DB2 installation
+      command: db2ls
+      register: db2ls
+      changed_when: false
+
+    - debug:
+        var: db2ls.stdout_lines
